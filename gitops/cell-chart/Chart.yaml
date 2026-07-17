@@ -1,0 +1,6 @@
+apiVersion: v2
+name: cell-chart
+description: Chart genérico que representa uma célula (app + banco de dados isolados)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

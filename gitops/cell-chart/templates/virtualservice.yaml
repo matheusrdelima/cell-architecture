@@ -1,0 +1,21 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: cell-app
+  namespace: cell-{{ .Values.cellId }}
+spec:
+  hosts:
+    - "*"
+  gateways:
+    - istio-system/cell-gateway
+  http:
+    - match:
+        - uri:
+            prefix: "{{ .Values.gateway.pathPrefix }}"
+      rewrite:
+        uri: "/"
+      route:
+        - destination:
+            host: cell-app.cell-{{ .Values.cellId }}.svc.cluster.local
+            port:
+              number: {{ .Values.service.port }}

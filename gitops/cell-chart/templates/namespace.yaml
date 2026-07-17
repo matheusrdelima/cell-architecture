@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cell-{{ .Values.cellId }}
+  labels:
+    istio-injection: enabled
+    app.kubernetes.io/part-of: cell-architecture-poc
+    cell-id: "{{ .Values.cellId }}"

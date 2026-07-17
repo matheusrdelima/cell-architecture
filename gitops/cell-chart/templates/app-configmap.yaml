@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cell-app-code
+  namespace: cell-{{ .Values.cellId }}
+data:
+  app.py: |
+{{ .Files.Get "files/app.py" | indent 4 }}

@@ -1,0 +1,20 @@
+# Valores padrão de uma célula. Cada célula sobrescreve o que precisa
+# no arquivo gitops/cells/<nome-da-celula>/values.yaml
+
+cellId: "default"
+
+appImage: "python:3.12-slim"
+appReplicas: 1
+
+service:
+  port: 8080
+
+db:
+  image: "postgres:16-alpine"
+  name: "cellsdb"
+  user: "celluser"
+  password: "cellpass"
+  storage: "1Gi"
+
+gateway:
+  pathPrefix: "/cell-default"

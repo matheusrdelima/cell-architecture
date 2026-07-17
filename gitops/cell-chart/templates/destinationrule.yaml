@@ -1,0 +1,10 @@
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: cell-app
+  namespace: cell-{{ .Values.cellId }}
+spec:
+  host: cell-app.cell-{{ .Values.cellId }}.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL

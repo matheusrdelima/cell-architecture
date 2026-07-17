@@ -1,0 +1,33 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: cells
+  namespace: argocd
+spec:
+  generators:
+    - git:
+        # >>> EDITE AQUI com a URL do seu repositório git <<<
+        repoURL: https://github.com/SEU_USUARIO/SEU_REPO.git
+        revision: main
+        directories:
+          - path: gitops/cells/*
+  template:
+    metadata:
+      name: 'cell-{{path.basename}}'
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/SEU_USUARIO/SEU_REPO.git
+        targetRevision: main
+        path: gitops/cell-chart
+        helm:
+          valueFiles:
+            - ../cells/{{path.basename}}/values.yaml
+      destination:
+        server: https://kubernetes.default.svc
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
