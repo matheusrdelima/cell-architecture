@@ -7,7 +7,7 @@ spec:
   generators:
     - git:
         # >>> EDITE AQUI com a URL do seu repositório git <<<
-        repoURL: https://github.com/SEU_USUARIO/SEU_REPO.git
+        repoURL: https://github.com/matheusrdelima/cell-architecture.git
         revision: main
         directories:
           - path: gitops/cells/*
@@ -17,7 +17,7 @@ spec:
     spec:
       project: default
       source:
-        repoURL: https://github.com/SEU_USUARIO/SEU_REPO.git
+        repoURL: https://github.com/matheusrdelima/cell-architecture.git
         targetRevision: main
         path: gitops/cell-chart
         helm:
