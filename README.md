@@ -1,53 +1,30 @@
-# PoC — Arquitetura em Células (Cell-Based Architecture)
+# Cell-Based Architecture PoC — kind + Istio + ArgoCD
 
-PoC simples e funcional de uma arquitetura baseada em células, rodando em
-`kind`, com **Istio** (service mesh + roteamento) e **ArgoCD** (GitOps).
-Cada célula tem sua própria aplicação e seu próprio banco de dados,
-isolados em um namespace dedicado.
+PoC de uma **arquitetura em células** rodando localmente em 3 clusters
+[kind](https://kind.sigs.k8s.io/): um `master` (GitOps) e dois `shard`
+(onde as células rodam de fato). Cada célula tem sua própria API e seu
+próprio banco, e adicionar uma célula nova é só um arquivo + `git push`.
 
 ## Arquitetura
 
 ```
-                        ┌─────────────────────────┐
-   cliente ── HTTP ──▶  │  Istio Ingress Gateway   │
-                        └───────────┬──────────────┘
-                     /cell-a │             │ /cell-b
-                             ▼             ▼
-                  ┌────────────────┐  ┌────────────────┐
-                  │  ns: cell-a    │  │  ns: cell-b    │
-                  │  ┌──────────┐  │  │  ┌──────────┐  │
-                  │  │ cell-app │  │  │  │ cell-app │  │
-                  │  └────┬─────┘  │  │  └────┬─────┘  │
-                  │       ▼        │  │       ▼        │
-                  │  ┌──────────┐  │  │  ┌──────────┐  │
-                  │  │ cell-db  │  │  │  │ cell-db  │  │
-                  │  │(postgres)│  │  │  │(postgres)│  │
-                  │  └──────────┘  │  │  └──────────┘  │
-                  └────────────────┘  └────────────────┘
+                    edge-router (nginx) — localhost:8080
+                       /cell-a ──┐   ┌── /cell-b
+                                 ▼   ▼
+                  ┌──────────┐     ┌──────────┐
+                  │  shard1  │     │  shard2  │   ← Istio + suas células
+                  │  cell-a  │     │  cell-b  │      (app + banco isolados)
+                  └────▲─────┘     └────▲─────┘
+                       └────────┬───────┘
+                            ┌────────┐
+                            │ master │   ← ArgoCD (GitOps)
+                            └────────┘
 ```
 
-- **Istio Gateway** único (`istio/gateway.yaml`), na `istio-system`, recebe
-  todo o tráfego de entrada.
-- Cada célula tem um **VirtualService** que casa por prefixo de path
-  (`/cell-a`, `/cell-b`, ...) e roteia só para os serviços daquele
-  namespace — nenhuma célula enxerga ou depende da outra.
-- Cada célula é um **namespace isolado** (`cell-<id>`) com:
-  - `cell-app`: um Deployment com uma API Flask simples.
-  - `cell-db`: um StatefulSet Postgres com seu próprio PVC.
-  - `PeerAuthentication` em modo `STRICT` (mTLS obrigatório dentro da célula).
-- Tudo é gerenciado por um **Helm chart único** (`gitops/cell-chart`),
-  parametrizado por um `values.yaml` por célula
-  (`gitops/cells/<nome>/values.yaml`).
-- Um **ArgoCD ApplicationSet** (`gitops/root-app.yaml`) usa o *git directory
-  generator* para descobrir automaticamente cada pasta em `gitops/cells/*`
-  e criar/sincronizar uma Application por célula.
-
-### Por que isso deixa fácil adicionar células novas
-
-Adicionar uma célula = criar uma pasta com um `values.yaml` e dar `git push`.
-O ArgoCD ApplicationSet detecta a nova pasta sozinho e cria o namespace, o
-app, o banco e as regras de roteamento — sem tocar em nenhum outro
-componente do cluster.
+- **`master`**: só roda o ArgoCD, decide onde cada célula é implantada.
+- **`shard1` / `shard2`**: rodam Istio e hospedam as células.
+- Cada célula = um namespace com API + Postgres, definidos por um
+  `values.yaml` que diz o `cellId`, o shard de destino e o path.
 
 ## Pré-requisitos
 
@@ -55,116 +32,88 @@ componente do cluster.
 - [kind](https://kind.sigs.k8s.io/)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/)
 - [istioctl](https://istio.io/latest/docs/setup/getting-started/#download)
-- Um repositório git próprio (GitHub, GitLab, etc.) para hospedar este
-  diretório — o ArgoCD sincroniza a partir dele, não do seu disco local.
+- Git + uma conta no GitHub para hospedar seu fork
 
-## Passo a passo
+## Como rodar
 
-### 1. Suba o cluster kind
+### 1. Fork e clone
+
+```bash
+git clone https://github.com/SEU_USUARIO/SEU_FORK.git
+cd SEU_FORK
+```
+
+### 2. Suba os clusters e instale as peças
 
 ```bash
 cd scripts
-./01-create-cluster.sh
+./01-create-clusters.sh          # cria os 3 clusters kind
+./02-install-istio-shards.sh     # instala Istio em shard1 e shard2
+./03-install-argocd-master.sh    # instala ArgoCD no master
 ```
 
-### 2. Instale o Istio
+### 3. Aponte para o seu fork
 
-```bash
-./02-install-istio.sh
-```
-
-### 3. Instale o ArgoCD
-
-```bash
-./03-install-argocd.sh
-```
-
-Guarde a senha do `admin` que o script imprime.
-
-### 4. Publique este repositório no seu git
+Edite `gitops/root-app.yaml` e troque `SEU_USUARIO/SEU_REPO` pela URL do
+seu fork. Depois:
 
 ```bash
 cd ..
-git init
-git add .
-git commit -m "poc: arquitetura em celulas"
-git remote add origin https://github.com/SEU_USUARIO/SEU_REPO.git
-git push -u origin main
-```
-
-Depois edite `gitops/root-app.yaml` e troque as duas ocorrências de
-`https://github.com/SEU_USUARIO/SEU_REPO.git` pela URL real do seu
-repositório.
-
-### 5. Aplique o ApplicationSet (bootstrap GitOps)
-
-```bash
+git add gitops/root-app.yaml && git commit -m "chore: meu fork" && git push
 cd scripts
-./04-bootstrap-argocd-apps.sh
 ```
 
-Acompanhe:
+### 4. Registre os shards e implante as células
 
 ```bash
-kubectl -n argocd get applications
-kubectl get ns | grep cell-
+./04-register-shards.sh          # registra shard1 e shard2 no ArgoCD
+./05-bootstrap-argocd-apps.sh    # aplica o ApplicationSet
+./06-generate-edge-router.sh     # sobe o roteador de entrada
 ```
 
-Em alguns segundos você deve ver os namespaces `cell-a` e `cell-b` criados
-e sincronizados.
-
-### 6. Teste
+### 5. Teste
 
 ```bash
-./05-test-cells.sh
+./07-test-cells.sh
 ```
 
 Ou manualmente:
 
 ```bash
-kubectl -n istio-system port-forward svc/istio-ingressgateway 8080:80
 curl http://localhost:8080/cell-a/
 curl http://localhost:8080/cell-b/
 ```
 
-Cada chamada grava uma linha no Postgres **daquela célula** e devolve a
-contagem — prova de que os dados de `cell-a` e `cell-b` são
-completamente independentes.
+Cada chamada grava e conta registros no banco daquela célula — prova de
+que os dados de `cell-a` e `cell-b` são completamente isolados.
 
-## Como adicionar uma nova célula
+## Adicionando uma nova célula
 
-1. Copie um dos exemplos:
-   ```bash
-   cp -r gitops/cells/cell-a gitops/cells/cell-c
-   ```
-2. Edite `gitops/cells/cell-c/values.yaml`:
-   ```yaml
-   cellId: "c"
-   gateway:
-     pathPrefix: "/cell-c"
-   ```
-3. Commit e push:
-   ```bash
-   git add gitops/cells/cell-c
-   git commit -m "cell: adiciona cell-c"
-   git push
-   ```
+```bash
+cp -r gitops/cells/cell-a gitops/cells/cell-c
+```
 
-O ArgoCD ApplicationSet detecta a nova pasta no próximo poll (por padrão a
-cada ~3 minutos, ou force com `argocd app sync` / clique em *Refresh* na
-UI) e cria automaticamente o namespace `cell-c`, o app, o banco e o
-roteamento — nada mais precisa ser tocado.
+Edite `gitops/cells/cell-c/values.yaml`:
 
-## Limitações conscientes (é uma PoC)
+```yaml
+cellId: "c"
+targetShard: "shard-2"
+gateway:
+  pathPrefix: "/cell-c"
+```
 
-- A imagem da aplicação instala `flask`/`psycopg2-binary` via `pip` no
-  start do container (precisa de acesso à internet a partir dos nós do
-  cluster). Suficiente para demo; numa arquitetura real cada célula teria
-  sua própria imagem versionada em um registry.
-- Sem autenticação/gateway de API, rate limiting ou observabilidade
-  (Kiali/Grafana/Prometheus do próprio Istio addon podem ser plugados
-  depois, `istioctl install --set profile=demo` já os prepara para
-  instalação via `samples/addons`).
-- `repoURL` no `root-app.yaml` precisa ser um repositório git real e
-  acessível pelo ArgoCD (público, ou com credencial configurada no ArgoCD
-  para repositório privado).
+```bash
+git add gitops/cells/cell-c && git commit -m "cell: adiciona cell-c" && git push
+cd scripts && ./06-generate-edge-router.sh
+```
+
+O ArgoCD detecta a nova pasta sozinho e cria o namespace, o app e o
+banco no shard escolhido.
+
+## Limitações (é uma PoC)
+
+- Sem malha Istio entre os shards — cada um é isolado, sem chamada
+  direta célula-a-célula entre clusters diferentes.
+- A app instala dependências via `pip` no start do container (precisa de
+  internet nos nós); numa arquitetura real, use uma imagem já buildada.
+- Escolher o `targetShard` é manual.
