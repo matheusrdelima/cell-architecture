@@ -7,19 +7,7 @@ próprio banco, e adicionar uma célula nova é só um arquivo + `git push`.
 
 ## Arquitetura
 
-```
-                    edge-router (nginx) — localhost:8080
-                       /cell-a ──┐   ┌── /cell-b
-                                 ▼   ▼
-                  ┌──────────┐     ┌──────────┐
-                  │  shard1  │     │  shard2  │   ← Istio + suas células
-                  │  cell-a  │     │  cell-b  │      (app + banco isolados)
-                  └────▲─────┘     └────▲─────┘
-                       └────────┬───────┘
-                            ┌────────┐
-                            │ master │   ← ArgoCD (GitOps)
-                            └────────┘
-```
+![Arquitetura: cliente e edge router roteando para dois clusters shard com Istio e células isoladas, sincronizados via ArgoCD a partir de um cluster master que lê um repositório git](docs/architecture.svg)
 
 - **`master`**: só roda o ArgoCD, decide onde cada célula é implantada.
 - **`shard1` / `shard2`**: rodam Istio e hospedam as células.
@@ -109,6 +97,15 @@ cd scripts && ./06-generate-edge-router.sh
 
 O ArgoCD detecta a nova pasta sozinho e cria o namespace, o app e o
 banco no shard escolhido.
+
+## Problemas comuns
+
+- **`Repository not found` no ApplicationSet**: o `repoURL` em
+  `gitops/root-app.yaml` ainda está com o placeholder, ou o commit não
+  foi dado `push`.
+- **`connection refused` ao registrar os shards**: revalide o kubeconfig
+  com `kind export kubeconfig --name shard1` (e `shard2`) antes de rodar
+  o script de novo.
 
 ## Limitações (é uma PoC)
 
