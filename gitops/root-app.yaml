@@ -7,24 +7,29 @@ spec:
   generators:
     - git:
         # >>> EDITE AQUI com a URL do seu repositório git <<<
-        repoURL: https://github.com/matheusrdelima/cell-architecture.git
+        repoURL: https://github.com/SEU_USUARIO/SEU_REPO.git
         revision: main
-        directories:
-          - path: gitops/cells/*
+        files:
+          # Cada values.yaml de célula alimenta o gerador com seus campos
+          # (cellId, targetShard, gateway.pathPrefix, ...) como parâmetros
+          # de template, além de path / path.basename (nome da pasta).
+          - path: "gitops/cells/*/values.yaml"
   template:
     metadata:
       name: 'cell-{{path.basename}}'
     spec:
       project: default
       source:
-        repoURL: https://github.com/matheusrdelima/cell-architecture.git
+        repoURL: https://github.com/SEU_USUARIO/SEU_REPO.git
         targetRevision: main
         path: gitops/cell-chart
         helm:
           valueFiles:
             - ../cells/{{path.basename}}/values.yaml
       destination:
-        server: https://kubernetes.default.svc
+        # Nome do cluster registrado no ArgoCD (ex.: shard-1, shard-2),
+        # lido diretamente do campo "targetShard" do values.yaml da célula.
+        name: '{{targetShard}}'
       syncPolicy:
         automated:
           prune: true

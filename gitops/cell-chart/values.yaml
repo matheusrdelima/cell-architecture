@@ -3,6 +3,10 @@
 
 cellId: "default"
 
+# Usado apenas pelo ApplicationSet para decidir o cluster de destino
+# (não é consumido por nenhum template do chart).
+targetShard: "shard-1"
+
 appImage: "python:3.12-slim"
 appReplicas: 1
 

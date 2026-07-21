@@ -1,3 +1,4 @@
 cellId: "a"
+targetShard: "shard-1"
 gateway:
   pathPrefix: "/cell-a"

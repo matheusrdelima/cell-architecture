@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+kubectl config use-context kind-master
+
 kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
 
 # Os CRDs do ArgoCD (ex.: applicationsets.argoproj.io) são grandes demais para
@@ -10,7 +12,7 @@ kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
 kubectl apply -n argocd --server-side --force-conflicts \
   -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 
-echo "Aguardando ArgoCD ficar pronto (pode levar alguns minutos)..."
+echo "Aguardando ArgoCD ficar pronto no cluster master (pode levar alguns minutos)..."
 kubectl -n argocd wait --for=condition=available --timeout=300s deployment/argocd-server
 
 echo

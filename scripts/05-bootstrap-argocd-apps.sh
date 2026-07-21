@@ -11,5 +11,9 @@ if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
   exit 1
 fi
 
+kubectl config use-context kind-master
 kubectl apply -f ../gitops/root-app.yaml
-echo "ApplicationSet aplicado. Acompanhe com: kubectl -n argocd get applications"
+
+echo "ApplicationSet aplicado. Acompanhe com:"
+echo "  kubectl config use-context kind-master"
+echo "  kubectl -n argocd get applications"
